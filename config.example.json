@@ -1,6 +1,7 @@
 {
   "settings": {
-    "skip_if_done_today": true
+    "skip_if_done_today": true,
+    "timeout_hours": 8
   },
   "nodes": [
     { "id": "root",        "type": "confirm", "prompt": "Train today?",               "yes": "warmup",      "no": "exit" },

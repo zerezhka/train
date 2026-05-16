@@ -6,7 +6,7 @@ import os
 import subprocess
 import sys
 import webbrowser
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 CONFIG_ENV = "TRAIN_CONFIG"
@@ -141,6 +141,13 @@ def save_state(path: Path, data: dict) -> None:
 
 def should_skip(cfg: dict, state: dict) -> bool:
     settings = cfg.get("settings") or {}
+    timeout_hours = settings.get("timeout_hours")
+    if timeout_hours is not None:
+        last_run = state.get("last_run_ts")
+        if not last_run:
+            return False
+        elapsed = (datetime.now(timezone.utc) - datetime.fromisoformat(last_run)).total_seconds()
+        return elapsed < timeout_hours * 3600
     if not settings.get("skip_if_done_today", True):
         return False
     today = date.today().isoformat()
@@ -256,6 +263,7 @@ def mark_done(state_path: Path, state: dict, dry_run: bool, no_state: bool) -> N
     if dry_run or no_state:
         return
     state["last_run"] = date.today().isoformat()
+    state["last_run_ts"] = datetime.now(timezone.utc).isoformat()
     save_state(state_path, state)
 
 
