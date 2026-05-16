@@ -1,0 +1,49 @@
+{
+  "settings": {
+    "skip_if_done_today": true
+  },
+  "nodes": [
+    { "id": "root",        "type": "confirm", "prompt": "Train today?",               "yes": "warmup",      "no": "exit" },
+    { "id": "warmup",      "type": "confirm", "prompt": "Warmup? (keyboard trainer)",  "yes": "open-typing", "no": "main" },
+    { "id": "open-typing", "type": "open",    "url": "https://monkeytype.com" },
+
+    { "id": "main", "type": "select", "prompt": "What do you wanna learn?",
+      "options": [
+        { "label": "Programming language", "next": "lang"  },
+        { "label": "Tool",                 "next": "tool"  },
+        { "label": "Skill",                "next": "skill" }
+      ]
+    },
+
+    { "id": "lang", "type": "select", "prompt": "Pick a language",
+      "options": [
+        { "label": "Go",   "next": "open-go"   },
+        { "label": "Rust", "next": "open-rust" },
+        { "label": "Jai",  "next": "open-jai"  }
+      ]
+    },
+    { "id": "open-go",   "type": "open", "url": "https://go.dev/tour/" },
+    { "id": "open-rust", "type": "open", "url": "https://play.rust-lang.org" },
+    { "id": "open-jai",  "type": "open", "url": "https://github.com/Jai-Community/Jai-Community-Library" },
+
+    { "id": "tool", "type": "select", "prompt": "Pick a tool",
+      "options": [
+        { "label": "Vim",   "next": "cmd-vim"   },
+        { "label": "Emacs", "next": "cmd-emacs" },
+        { "label": "Git",   "next": "cmd-git"   }
+      ]
+    },
+    { "id": "cmd-vim",   "type": "cmd", "cmd": "vimtutor" },
+    { "id": "cmd-emacs", "type": "cmd", "cmd": "emacs --eval '(help-with-tutorial)'" },
+    { "id": "cmd-git",   "type": "cmd", "cmd": "steam steam://rungameid/1490570" },
+
+    { "id": "skill", "type": "select", "prompt": "Pick a skill",
+      "options": [
+        { "label": "Morse code", "next": "open-morse" }
+      ]
+    },
+    { "id": "open-morse", "type": "open", "url": "https://lcwo.net" },
+
+    { "id": "exit", "type": "exit" }
+  ]
+}

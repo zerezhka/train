@@ -1,0 +1,371 @@
+#!/usr/bin/env python3
+
+import argparse
+import json
+import os
+import subprocess
+import sys
+import webbrowser
+from datetime import date
+from pathlib import Path
+
+CONFIG_ENV = "TRAIN_CONFIG"
+STATE_ENV = "TRAIN_STATE"
+ROOT_ID = "root"
+KNOWN_TYPES = frozenset({"confirm", "select", "open", "cmd", "exit"})
+
+
+def default_paths() -> tuple[Path, Path]:
+    home = Path.home()
+    if sys.platform == "win32":
+        config = home / "AppData" / "Roaming" / "train" / "config.json"
+        state = home / "AppData" / "Local" / "train" / "state.json"
+    elif sys.platform == "darwin":
+        base = home / "Library" / "Application Support" / "train"
+        config = base / "config.json"
+        state = base / "state.json"
+    else:
+        config = home / ".config" / "train" / "config.json"
+        state = home / ".local" / "share" / "train" / "state.json"
+    return config, state
+
+
+DEFAULT_CONFIG, DEFAULT_STATE = default_paths()
+
+
+class ConfigError(Exception):
+    pass
+
+
+def config_path() -> Path:
+    override = os.environ.get(CONFIG_ENV)
+    return Path(override) if override else DEFAULT_CONFIG
+
+
+def state_path() -> Path:
+    override = os.environ.get(STATE_ENV)
+    return Path(override) if override else DEFAULT_STATE
+
+
+def load_config(path: Path) -> dict:
+    if not path.is_file():
+        cfg_default, _ = default_paths()
+        print(
+            f"train: config not found: {path}\n"
+            f"Run install script or copy config.example.json to {cfg_default}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    try:
+        with path.open(encoding="utf-8") as f:
+            return json.load(f)
+    except json.JSONDecodeError as e:
+        print(f"train: invalid JSON in {path}: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def validate_config(cfg: dict) -> dict[str, dict]:
+    nodes = cfg.get("nodes")
+    if not isinstance(nodes, list) or not nodes:
+        raise ConfigError("'nodes' must be a non-empty list")
+
+    graph: dict[str, dict] = {}
+    for node in nodes:
+        if not isinstance(node, dict):
+            raise ConfigError("each node must be an object")
+        node_id = node.get("id")
+        if not node_id or not isinstance(node_id, str):
+            raise ConfigError("each node needs a string 'id'")
+        if node_id in graph:
+            raise ConfigError(f"duplicate node id: {node_id}")
+        node_type = node.get("type")
+        if node_type not in KNOWN_TYPES:
+            raise ConfigError(f"node '{node_id}': unknown type '{node_type}'")
+        graph[node_id] = node
+
+    if ROOT_ID not in graph:
+        raise ConfigError(f"missing '{ROOT_ID}' node")
+
+    def require_ref(node_id: str, field: str, target: str) -> None:
+        if target not in graph:
+            raise ConfigError(f"node '{node_id}': {field} references unknown id '{target}'")
+
+    for node_id, node in graph.items():
+        node_type = node["type"]
+        if node_type == "confirm":
+            for field in ("prompt", "yes", "no"):
+                if field not in node:
+                    raise ConfigError(f"node '{node_id}': confirm requires '{field}'")
+            require_ref(node_id, "yes", node["yes"])
+            require_ref(node_id, "no", node["no"])
+        elif node_type == "select":
+            if "prompt" not in node:
+                raise ConfigError(f"node '{node_id}': select requires 'prompt'")
+            options = node.get("options")
+            if not isinstance(options, list) or not options:
+                raise ConfigError(f"node '{node_id}': select needs non-empty 'options'")
+            for i, opt in enumerate(options):
+                if not isinstance(opt, dict):
+                    raise ConfigError(f"node '{node_id}': option {i} must be an object")
+                for field in ("label", "next"):
+                    if field not in opt:
+                        raise ConfigError(f"node '{node_id}': option {i} missing '{field}'")
+                require_ref(node_id, "next", opt["next"])
+        elif node_type == "open":
+            if "url" not in node:
+                raise ConfigError(f"node '{node_id}': open requires 'url'")
+        elif node_type == "cmd":
+            if "cmd" not in node:
+                raise ConfigError(f"node '{node_id}': cmd requires 'cmd'")
+
+    return graph
+
+
+def load_state(path: Path) -> dict:
+    if not path.is_file():
+        return {}
+    try:
+        with path.open(encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def save_state(path: Path, data: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+        f.write("\n")
+
+
+def should_skip(cfg: dict, state: dict) -> bool:
+    settings = cfg.get("settings") or {}
+    if not settings.get("skip_if_done_today", True):
+        return False
+    today = date.today().isoformat()
+    return state.get("last_run") == today
+
+
+def _read_key() -> str:
+    if sys.platform == "win32":
+        import msvcrt
+
+        while True:
+            ch = msvcrt.getch()
+            if ch in (b"\x03", b"\x04"):
+                raise KeyboardInterrupt
+            if ch in (b"\r", b"\n"):
+                return "\n"
+            try:
+                return ch.decode()
+            except UnicodeDecodeError:
+                continue
+
+    import termios
+    import tty
+
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    try:
+        tty.setcbreak(fd)
+        while True:
+            ch = sys.stdin.read(1)
+            if ch == "\x03":
+                raise KeyboardInterrupt
+            if ch:
+                return ch
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+
+
+def _prompt_confirm_line(prompt: str, default_no: bool) -> bool:
+    hint = "[y/N]" if default_no else "[Y/n]"
+    while True:
+        try:
+            raw = input(f"{prompt} {hint} ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            sys.exit(130)
+        if not raw:
+            return not default_no
+        if raw in ("y", "yes"):
+            return True
+        if raw in ("n", "no"):
+            return False
+
+
+def clrscr() -> None:
+    sys.stdout.write("\033[2J\033[H")
+    sys.stdout.flush()
+
+
+def prompt_confirm(prompt: str, default_no: bool = True) -> bool:
+    hint = "[y/N]" if default_no else "[Y/n]"
+    if not sys.stdin.isatty():
+        return _prompt_confirm_line(prompt, default_no)
+
+    clrscr()
+    try:
+        while True:
+            sys.stdout.write(f"{prompt} {hint} ")
+            sys.stdout.flush()
+            ch = _read_key()
+            if ch in ("\r", "\n"):
+                sys.stdout.write("\n")
+                sys.stdout.flush()
+                return not default_no
+            lower = ch.lower()
+            if lower == "y":
+                sys.stdout.write("y\n")
+                sys.stdout.flush()
+                return True
+            if lower == "n":
+                sys.stdout.write("n\n")
+                sys.stdout.flush()
+                return False
+    except (EOFError, KeyboardInterrupt):
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+        sys.exit(130)
+
+
+def prompt_select(prompt: str, options: list[dict], back_label: str | None = None) -> int:
+    clrscr()
+    print(prompt)
+    for i, opt in enumerate(options, start=1):
+        print(f"  {i}) {opt['label']}")
+    if back_label is not None:
+        print(f"  0) {back_label}")
+    while True:
+        try:
+            raw = input("> ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            sys.exit(130)
+        if not raw.isdigit():
+            continue
+        choice = int(raw)
+        if back_label is not None and choice == 0:
+            return -1
+        if 1 <= choice <= len(options):
+            return choice - 1
+
+
+def mark_done(state_path: Path, state: dict, dry_run: bool, no_state: bool) -> None:
+    if dry_run or no_state:
+        return
+    state["last_run"] = date.today().isoformat()
+    save_state(state_path, state)
+
+
+def open_url(url: str) -> bool:
+    try:
+        return webbrowser.open(url, new=2)
+    except webbrowser.Error:
+        return False
+
+
+def run_open(node: dict, state_path: Path, state: dict, dry_run: bool, no_state: bool) -> None:
+    url = node["url"]
+    if dry_run:
+        print(f"[dry-run] open: {url}  (not executed — omit --dry-run)")
+        return
+    mark_done(state_path, state, dry_run, no_state)
+    if not open_url(url):
+        print(
+            "train: could not open URL in a browser "
+            "(set $BROWSER on Unix or check the system default browser)",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+
+def run_cmd(node: dict, state_path: Path, state: dict, dry_run: bool, no_state: bool) -> None:
+    cmd = node["cmd"]
+    if dry_run:
+        print(f"[dry-run] cmd: {cmd}  (not executed — omit --dry-run)")
+        return
+    mark_done(state_path, state, dry_run, no_state)
+    subprocess.run(cmd, shell=True)
+
+
+def traverse(
+    graph: dict[str, dict],
+    start_id: str,
+    state_path: Path,
+    state: dict,
+    dry_run: bool,
+    no_state: bool,
+) -> None:
+    current_id = start_id
+    history: list[str] = []
+    while True:
+        node = graph[current_id]
+        node_type = node["type"]
+
+        if node_type == "exit":
+            if dry_run:
+                print("[dry-run] exit")
+            sys.exit(0)
+
+        if node_type == "confirm":
+            answer = prompt_confirm(node["prompt"])
+            history.append(current_id)
+            current_id = node["yes"] if answer else node["no"]
+            if dry_run:
+                branch = "yes" if answer else "no"
+                print(f"[dry-run] confirm -> {branch} -> {current_id}")
+            continue
+
+        if node_type == "select":
+            back_label = "Back" if history else None
+            idx = prompt_select(node["prompt"], node["options"], back_label=back_label)
+            if idx == -1:
+                current_id = history.pop()
+                continue
+            history.append(current_id)
+            current_id = node["options"][idx]["next"]
+            if dry_run:
+                print(f"[dry-run] select -> {current_id}")
+            continue
+
+        if node_type == "open":
+            run_open(node, state_path, state, dry_run, no_state)
+            sys.exit(0)
+
+        if node_type == "cmd":
+            run_cmd(node, state_path, state, dry_run, no_state)
+            sys.exit(0)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Daily training prompt for your terminal")
+    parser.add_argument("--force", action="store_true", help="prompt even if already done today")
+    parser.add_argument("--dry-run", action="store_true", help="print actions without executing")
+    parser.add_argument("--config", type=Path, help="path to config.json")
+    parser.add_argument("--no-state", action="store_true", help="ignore state file")
+    args = parser.parse_args()
+
+    cfg_file = args.config or config_path()
+    st_file = state_path()
+
+    try:
+        cfg = load_config(cfg_file)
+        graph = validate_config(cfg)
+    except ConfigError as e:
+        print(f"train: config error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    state = {} if args.no_state else load_state(st_file)
+    if not args.force and not args.dry_run and should_skip(cfg, state):
+        sys.exit(0)
+
+    if args.dry_run:
+        print("train: dry-run — prompts work, open/cmd/state are skipped", file=sys.stderr)
+
+    traverse(graph, ROOT_ID, st_file, state, args.dry_run, args.no_state)
+
+
+if __name__ == "__main__":
+    main()
