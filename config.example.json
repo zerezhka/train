@@ -6,7 +6,7 @@
   "nodes": [
     { "id": "root",        "type": "confirm", "prompt": "Train today?",               "yes": "warmup",      "no": "exit" },
     { "id": "warmup",      "type": "confirm", "prompt": "Warmup? (keyboard trainer)",  "yes": "open-typing", "no": "main" },
-    { "id": "open-typing", "type": "open",    "url": "https://monkeytype.com" },
+    { "id": "open-typing", "type": "open",    "url": "https://monkeytype.com", "no_state": true },
 
     { "id": "main", "type": "select", "prompt": "What do you wanna learn?",
       "options": [

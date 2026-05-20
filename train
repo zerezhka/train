@@ -279,7 +279,8 @@ def run_open(node: dict, state_path: Path, state: dict, dry_run: bool, no_state:
     if dry_run:
         print(f"[dry-run] open: {url}  (not executed — omit --dry-run)")
         return
-    mark_done(state_path, state, dry_run, no_state)
+    if not node.get("no_state"):
+        mark_done(state_path, state, dry_run, no_state)
     if not open_url(url):
         print(
             "train: could not open URL in a browser "
@@ -294,7 +295,8 @@ def run_cmd(node: dict, state_path: Path, state: dict, dry_run: bool, no_state: 
     if dry_run:
         print(f"[dry-run] cmd: {cmd}  (not executed — omit --dry-run)")
         return
-    mark_done(state_path, state, dry_run, no_state)
+    if not node.get("no_state"):
+        mark_done(state_path, state, dry_run, no_state)
     subprocess.run(cmd, shell=True)
 
 
