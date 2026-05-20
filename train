@@ -351,7 +351,7 @@ def traverse(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Daily training prompt for your terminal")
-    parser.add_argument("--force", action="store_true", help="prompt even if already done today")
+    parser.add_argument("--auto", action="store_true", help="skip if already done today (for shell auto-start)")
     parser.add_argument("--dry-run", action="store_true", help="print actions without executing")
     parser.add_argument("--config", type=Path, help="path to config.json")
     parser.add_argument("--no-state", action="store_true", help="ignore state file")
@@ -368,7 +368,7 @@ def main() -> None:
         sys.exit(1)
 
     state = {} if args.no_state else load_state(st_file)
-    if not args.force and not args.dry_run and should_skip(cfg, state):
+    if args.auto and not args.dry_run and should_skip(cfg, state):
         sys.exit(0)
 
     if args.dry_run:

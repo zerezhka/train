@@ -17,7 +17,7 @@ cd ~/Projects/training-app
 Add to `~/.zshrc` (bash: `~/.bashrc`):
 
 ```zsh
-[[ $SHLVL -eq 1 && -t 0 ]] && train
+[[ $SHLVL -eq 1 && -t 0 ]] && train --auto
 ```
 
 Ensure `~/.local/bin` is on your `PATH`.
@@ -50,8 +50,8 @@ Override with `TRAIN_CONFIG` / `TRAIN_STATE` env vars.
 ## Usage
 
 ```bash
-train                  # normal run
-train --force          # prompt even if done today
+train                  # always runs
+train --auto           # skip if already done today (use in .zshrc)
 train --dry-run        # walk menus only; does NOT open browser or run cmd nodes
 train --config ./config.example.json --dry-run
 ```
@@ -88,7 +88,8 @@ Traversal starts at `root`. Settings:
 - [ ] `n` at root → silent exit, no state write
 - [ ] `open` node → browser opens, `last_run` = today
 - [ ] Second terminal same day → silent skip
-- [ ] `train --force` → prompts again
+- [ ] `train --auto` after done today → silent skip
+- [ ] `train` after done today → prompts again
 - [ ] `train --dry-run` → no side effects
 - [ ] Broken `next` ref → clear stderr error
 - [ ] Invalid select input → re-prompt

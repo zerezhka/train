@@ -22,9 +22,9 @@ echo
 if [[ "$(uname -s)" == "Darwin" ]]; then
   echo "Config: ~/Library/Application Support/train/config.json"
   echo "Add to ~/.zshrc:"
-  echo '  [[ $SHLVL -eq 1 && -t 0 ]] && train'
+  echo '  [[ $SHLVL -eq 1 && -t 0 ]] && train --auto'
 else
   echo "Config: ~/.config/train/config.json"
   echo "Add to ~/.zshrc:"
-  echo '  [[ $SHLVL -eq 1 && -t 0 ]] && train'
+  echo '  [[ $SHLVL -eq 1 && -t 0 ]] && train --auto'
 fi
