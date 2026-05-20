@@ -298,7 +298,7 @@ def run_cmd(node: dict, state_path: Path, state: dict, dry_run: bool, no_state: 
     if not node.get("no_state"):
         mark_done(state_path, state, dry_run, no_state)
     if node.get("async"):
-        subprocess.Popen(cmd, shell=True)
+        subprocess.Popen(cmd, shell=True, start_new_session=True)
     else:
         subprocess.run(cmd, shell=True)
 

@@ -23,7 +23,7 @@
         { "label": "Jai",  "next": "open-jai"  }
       ]
     },
-    { "id": "open-go",   "type": "cmd", "cmd": "alacritty --working-directory ~/Projects/golings -e golings watch", "async": true },
+    { "id": "open-go",   "type": "cmd", "cmd": "alacritty --working-directory ~/Projects/golings -e golings watch & alacritty --working-directory ~/Projects/golings", "async": true },
     { "id": "open-rust", "type": "cmd", "cmd": "alacritty --working-directory ~/Projects/rustlings -e rustlings watch", "async": true },
     { "id": "open-jai",  "type": "cmd", "cmd": "alacritty --working-directory ~/Projects/try-jai", "async": true },
 
