@@ -297,7 +297,10 @@ def run_cmd(node: dict, state_path: Path, state: dict, dry_run: bool, no_state: 
         return
     if not node.get("no_state"):
         mark_done(state_path, state, dry_run, no_state)
-    subprocess.run(cmd, shell=True)
+    if node.get("async"):
+        subprocess.Popen(cmd, shell=True)
+    else:
+        subprocess.run(cmd, shell=True)
 
 
 def traverse(

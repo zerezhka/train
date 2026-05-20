@@ -23,9 +23,9 @@
         { "label": "Jai",  "next": "open-jai"  }
       ]
     },
-    { "id": "open-go",   "type": "open", "url": "https://go.dev/tour/" },
-    { "id": "open-rust", "type": "open", "url": "https://play.rust-lang.org" },
-    { "id": "open-jai",  "type": "open", "url": "https://github.com/Jai-Community/Jai-Community-Library" },
+    { "id": "open-go",   "type": "cmd", "cmd": "alacritty --working-directory ~/Projects/golings -e golings watch", "async": true },
+    { "id": "open-rust", "type": "cmd", "cmd": "alacritty --working-directory ~/Projects/rustlings -e rustlings watch", "async": true },
+    { "id": "open-jai",  "type": "cmd", "cmd": "alacritty --working-directory ~/Projects/try-jai", "async": true },
 
     { "id": "tool", "type": "select", "prompt": "Pick a tool",
       "options": [
@@ -34,9 +34,9 @@
         { "label": "Git",   "next": "cmd-git"   }
       ]
     },
-    { "id": "cmd-vim",   "type": "cmd", "cmd": "vimtutor" },
-    { "id": "cmd-emacs", "type": "cmd", "cmd": "emacs --eval '(help-with-tutorial)'" },
-    { "id": "cmd-git",   "type": "cmd", "cmd": "steam steam://rungameid/1490570" },
+    { "id": "cmd-vim",   "type": "cmd", "cmd": "alacritty -e vimtutor", "async": true },
+    { "id": "cmd-emacs", "type": "cmd", "cmd": "alacritty -e emacs --eval '(help-with-tutorial)'", "async": true },
+    { "id": "cmd-git",   "type": "cmd", "cmd": "steam steam://rungameid/1490570", "async": true },
 
     { "id": "skill", "type": "select", "prompt": "Pick a skill",
       "options": [
