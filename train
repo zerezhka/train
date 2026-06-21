@@ -196,9 +196,9 @@ def _prompt_confirm_line(prompt: str, default_no: bool) -> bool:
             sys.exit(130)
         if not raw:
             return not default_no
-        if raw in ("y", "yes"):
+        if raw in ("y", "yes", "н"):
             return True
-        if raw in ("n", "no"):
+        if raw in ("n", "no", "т"):
             return False
 
 
@@ -223,11 +223,11 @@ def prompt_confirm(prompt: str, default_no: bool = True) -> bool:
                 sys.stdout.flush()
                 return not default_no
             lower = ch.lower()
-            if lower == "y":
+            if lower in ("y", "н"):
                 sys.stdout.write("y\n")
                 sys.stdout.flush()
                 return True
-            if lower == "n":
+            if lower in ("n", "т"):
                 sys.stdout.write("n\n")
                 sys.stdout.flush()
                 return False
