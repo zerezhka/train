@@ -207,7 +207,7 @@ def clrscr() -> None:
     sys.stdout.flush()
 
 
-def prompt_confirm(prompt: str, default_no: bool = True) -> bool:
+def prompt_confirm(prompt: str, default_no: bool = True, dismiss_on_other: bool = False) -> bool:
     hint = "[y/N]" if default_no else "[Y/n]"
     if not sys.stdin.isatty():
         return _prompt_confirm_line(prompt, default_no)
@@ -227,7 +227,7 @@ def prompt_confirm(prompt: str, default_no: bool = True) -> bool:
                 sys.stdout.write("y\n")
                 sys.stdout.flush()
                 return True
-            if lower in ("n", "т"):
+            if dismiss_on_other or lower in ("n", "т"):
                 sys.stdout.write("n\n")
                 sys.stdout.flush()
                 return False
@@ -323,7 +323,7 @@ def traverse(
             sys.exit(0)
 
         if node_type == "confirm":
-            answer = prompt_confirm(node["prompt"])
+            answer = prompt_confirm(node["prompt"], dismiss_on_other=(current_id == start_id))
             history.append(current_id)
             current_id = node["yes"] if answer else node["no"]
             if dry_run:
